@@ -1,0 +1,34 @@
+[project]
+name = "pyhe60"
+version = "0.1.0"
+description = "Python interface for HydroLight EcoLight 6.0. Requires HydroLight EcoLight license."
+license = { text = "MIT" }
+readme = "README.md"
+authors = [
+    { name = "Nils Haëntjens", email = "nils.haentjens@maine.edu" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "numpy>=2.4.2",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.0",
+]
+
+[project.optional-dependencies]
+netcdf = []
+lut = [
+    "netcdf4>=1.7.4",
+    "tqdm>=4.67.3",
+]
+plot = [
+    "kaleido>=1.2.0",
+    "plotly>=6.5.2",
+]
+
+[tool.uv.build-backend]
+module-name = "pyhe60"
+module-root = "src"
+
+[build-system]
+requires = ["uv_build>=0.9.28,<0.10.0"]
+build-backend = "uv_build"
