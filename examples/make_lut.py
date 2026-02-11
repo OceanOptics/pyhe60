@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from pyhe60.constants import HE60_DATA
-from pyhe60.lut import make_lut_oneshot, estimate_lut_size
+from pyhe60.lut import make_lut, estimate_lut_size
 
 '''
 Build a look up table (LUT) of HydroLight 6.0 output for the parameter space given.
@@ -14,13 +14,13 @@ if __name__ == '__main__':  # Needed for multiprocessing
     # %% Parameter Space
     parameter_space = {
         'chlorophyll': [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.6, 0.8, 1, 2, 4],  # µg/L
-        'sun_zenith_angle': [0, 10, 20, 30, 40, 50, 60, 70, 80],  # degrees
+        'sun_zenith_angle': [0, 10, 20, 30, 40, 50, 60, 70],  # degrees
         'temperature': [5, 10, 15, 20, 25, 30, 35],  # degrees Celsius (might need higher resolution arround 9degC
         'wind_speed': [0, 1, 2, 3, 5, 10, 15],  # m/s
         'salinity': [32.5, 35, 37.5, 40],  # PSU
     }
     constants = {
-        'wavelength_start': 310, 'wavelength_stop': 790, 'wavelength_step': 1,
+        'wavelength_start': 310, 'wavelength_stop': 790, 'wavelength_step': 20,
         'output_depths': np.arange(0, 0.2, 0.02).tolist() + [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
     }
     spectral_variable = 'KLu'
@@ -45,4 +45,5 @@ if __name__ == '__main__':  # Needed for multiprocessing
 
     # %% Build LUT
     path_to_lut = os.path.join(working_dir, f'he60.{spectral_variable.lower()}.lut.r0.nc')
-    lut = make_lut_oneshot(spectral_variable, parameter_space, constants, path_to_lut, working_dir)
+    make_lut(spectral_variable, parameter_space, constants, path_to_lut, working_dir, resume_run=False)
+    print('LUT built at:', path_to_lut)

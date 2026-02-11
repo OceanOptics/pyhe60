@@ -1,9 +1,12 @@
 from multiprocessing import Pool
+import os
 
 import numpy as np
 
 import pyhe60 as he
+from pyhe60.constants import HE60_DATA
 from pyhe60.plotting import select_subset, plot_property, plot_spectrum
+from pyhe60.utils import init_he60_output_directories
 
 if __name__ == '__main__':  # Needed for multiprocessing
     # %% 1. Write Input Parameter Space
@@ -30,6 +33,7 @@ if __name__ == '__main__':  # Needed for multiprocessing
 
 
     # %% 2. Run HydroLight 6.0
+    init_he60_output_directories(os.path.join(HE60_DATA, 'output'))
     # Run sequentially (easy to debug)
     # for input_filename in input_filenames:
     #     he.run_he60(input_filename)

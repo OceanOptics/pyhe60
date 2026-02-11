@@ -1,8 +1,31 @@
+from contextlib import contextmanager
 import os
+import signal
 
 import numpy as np
 
 from pyhe60.constants import HE60_DATA
+
+
+@contextmanager
+def delay_sigint():
+    """
+    Context manager to delay KeyboardInterrupt during critical sections.
+    The interrupt will be raised after exiting the context.
+    """
+    signal_received = None
+
+    def handler(sig, frame):
+        nonlocal signal_received
+        signal_received = (sig, frame)
+
+    old_handler = signal.signal(signal.SIGINT, handler)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGINT, old_handler)
+        if signal_received:
+            old_handler(*signal_received)
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -30,8 +53,7 @@ def get_dtype(value):
 
 
 def init_he60_output_directories(output_dir=os.path.join(HE60_DATA, 'output')):
-    for dir in [os.path.join(output_dir, 'Hydrolight', 'digital'),
-                os.path.join(output_dir, 'Hydrolight', 'excel'),
-                os.path.join(output_dir, 'Hydrolight', 'printout')]:
-        if not os.path.exists(dir):
-            os.makedirs(dir)
+    for dir in [os.path.join(output_dir, 'HydroLight', 'digital'),
+                os.path.join(output_dir, 'HydroLight', 'excel'),
+                os.path.join(output_dir, 'HydroLight', 'printout')]:
+        os.makedirs(dir, exist_ok=True)

@@ -75,7 +75,7 @@ class Hyrolight6Input:
         return shake_128(buffer.encode()).hexdigest(10)
         # return shake_128("".join(str(v) for v in self.__dict__.values()).encode()).hexdigest(10)
 
-    def write(self, path_to_file, prefix='pyhe60'):
+    def write(self, path_to_file=HE60_INPUT_DIR, prefix='pyhe60'):
         """
         Write HydroLight6 input file
 
