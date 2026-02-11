@@ -77,6 +77,7 @@ def make_lut_ray(varname: str, dimensions: dict, constants: dict = None,
     # Initialize Ray
     started_ray = False
     if not ray.is_initialized():
+        print(f"Connecting to Ray cluster at {ray_address}")
         ray.init(address=ray_address, **(ray_init_kwargs or {}))
         started_ray = True
 

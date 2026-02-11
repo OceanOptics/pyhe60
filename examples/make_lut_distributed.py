@@ -7,7 +7,7 @@ from pyhe60.lut import make_lut_ray
 
 '''
 Build a look up table (LUT) of HydroLight 6.0 output for the parameter space given.
-Leverage Ray for distributed processingacross multiple CPU cores and/or machines. 
+Leverage Ray for distributed processing across multiple CPU cores and/or machines. 
 '''
 
 
@@ -20,7 +20,7 @@ parameter_space = {
     'salinity': [32.5, 35, 37.5, 40],  # PSU
 }
 constants = {
-    'wavelength_start': 310, 'wavelength_stop': 790, 'wavelength_step': 50,
+    'wavelength_start': 310, 'wavelength_stop': 790, 'wavelength_step': 1,
     'output_depths': np.arange(0, 0.2, 0.02).tolist() + [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
 }
 spectral_variable = 'KLu'
@@ -29,7 +29,6 @@ spectral_variable = 'KLu'
 head_node_ip = os.environ.get("HEAD_NODE_IP", '127.0.0.1')
 head_node_client_port = os.environ.get("HEAD_NODE_PORT", '10001')
 head_node_address = f"ray://{head_node_ip}:{head_node_client_port}"
-print(f"Connecting to Ray cluster at {head_node_address}")
 ray_init_kwargs = dict(
     runtime_env={
         'pip': [
@@ -49,7 +48,7 @@ ray_init_kwargs = dict(
 )
 
 # %% Build LUT
-path_to_lut = os.path.join(HE60_DATA, f'he60.{spectral_variable.lower()}.lut.rr1.nc')
+path_to_lut = os.path.join(HE60_DATA, f'he60.{spectral_variable.lower()}.lut.r1.nc')
 # if os.path.exists(path_to_lut):
 #     os.remove(path_to_lut)
 make_lut_ray(spectral_variable, parameter_space, constants, path_to_lut,

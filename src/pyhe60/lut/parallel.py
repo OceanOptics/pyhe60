@@ -110,7 +110,7 @@ def skip_computed_chunks(inputs: List[dict], indexes: List[Tuple[int]], varname:
     with netCDF4.Dataset(path_to_lut, 'r') as d:
         if varname in d.variables:
             var = d.variables[varname]
-            for input, index in zip(inputs, indexes):
+            for input, index in tqdm(zip(inputs, indexes), total=len(inputs), desc='Checking'):
                 if np.ma.getmaskarray(var[(slice(None), slice(None)) + index]).all():
                     # Not computed yet
                     filtered_inputs.append(input)
