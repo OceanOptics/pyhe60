@@ -1,6 +1,6 @@
 [project]
 name = "pyhe60"
-version = "0.2.1"
+version = "0.2.2"
 description = "Python interface for HydroLight EcoLight 6.0. Requires HydroLight EcoLight license."
 license = { text = "MIT" }
 readme = "README.md"

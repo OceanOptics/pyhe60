@@ -52,7 +52,7 @@ path_to_lut = os.path.join(HE60_DATA, f'he60.{spectral_variable.lower()}.lut.r1.
 # if os.path.exists(path_to_lut):
 #     os.remove(path_to_lut)
 make_lut_ray(spectral_variable, parameter_space, constants, path_to_lut,
-             resume_run=True,
+             resume_run=True, lut_is_contiguous=True,
              max_in_flight=200,
              ray_address=head_node_address, ray_init_kwargs=ray_init_kwargs)
 print('LUT built at:', path_to_lut)

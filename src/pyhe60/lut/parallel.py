@@ -24,7 +24,7 @@ from ..constants import HE60_DATA
 
 def make_lut_multiprocessing(varname: str, dimensions: dict, constants: dict = None,
                              path_to_lut: str = None, working_dir: str = HE60_DATA,
-                             resume_run: bool=False):
+                             resume_run: bool=False, lut_is_contiguous: bool=False):
     """
     Generate HydroLight6 input files, run HydroLight6, and build n-dimensional lookup table in NetCDF file.
     Uses multiprocessing for parallelization on a single machine.
@@ -37,6 +37,7 @@ def make_lut_multiprocessing(varname: str, dimensions: dict, constants: dict = N
     :param path_to_lut: Path to output NetCDF LUT file
     :param working_dir: Path to HydroLight6 working directory (default to HE60_DATA)
     :param resume_run: Enable resuming an incomplete LUT run by skipping already computed chunks (default: False)
+    :param lut_is_contiguous: If True, assumes incomplete LUT is contiguous (no gaps) and sequentially filled. (default: False)
     :return:
     """
 
@@ -46,7 +47,7 @@ def make_lut_multiprocessing(varname: str, dimensions: dict, constants: dict = N
     # Generate input
     inputs, indexes = generate_inputs(dimensions, constants)
     if resume_run:
-        inputs, indexes = skip_computed_chunks(inputs, indexes, varname, path_to_lut)
+        inputs, indexes = skip_computed_chunks(inputs, indexes, varname, path_to_lut, lut_is_contiguous)
         print('Resuming run, remaining simulations:', len(inputs))
 
     # Initialize LUT
@@ -90,7 +91,8 @@ def generate_inputs(dimensions: dict, constants: dict = None):
     return inputs, indexes
 
 
-def skip_computed_chunks(inputs: List[dict], indexes: List[Tuple[int]], varname: str, path_to_lut: str):
+def skip_computed_chunks(inputs: List[dict], indexes: List[Tuple[int]], varname: str, path_to_lut: str,
+                         is_contiguous: bool=False):
     """
     Remove already computed chunks from inputs and indexes by checking for missing values in LUT file.
     This allows resuming an incomplete LUT run without re-running HydroLight6 for already computed chunks.
@@ -99,6 +101,8 @@ def skip_computed_chunks(inputs: List[dict], indexes: List[Tuple[int]], varname:
     :param indexes: List of index tuples
     :param varname: Variable name to store in LUT (e.g. KLu, Rrs, Lu, Ed, Kd)
     :param path_to_lut: Path to output NetCDF LUT file
+    :param is_contiguous: If True, assumes LUT is contiguous (no gaps) and sequentially filled.
+                            stop checking after first missing chunk is found (default: False)
     :return: filtered_inputs and filtered_indexes
     """
     # if LUT does not exist, return all indexes
@@ -106,11 +110,25 @@ def skip_computed_chunks(inputs: List[dict], indexes: List[Tuple[int]], varname:
         return inputs, indexes
 
     # Check if already processed
-    filtered_inputs, filtered_indexes = [], []
     with netCDF4.Dataset(path_to_lut, 'r') as d:
-        if varname in d.variables:
-            var = d.variables[varname]
-            for input, index in tqdm(zip(inputs, indexes), total=len(inputs), desc='Checking'):
+        if varname not in d.variables:
+            return inputs, indexes
+
+        var = d.variables[varname]
+        n = len(indexes)
+        if is_contiguous:
+            low, high = 0, n - 1
+            while low <= high:
+                mid = (low + high) // 2
+                if np.ma.getmaskarray(var[(slice(None), slice(None)) + indexes[mid]]).all():
+                    high = mid - 1
+                else:
+                    low = mid + 1
+            filtered_inputs = inputs[low:]
+            filtered_indexes = indexes[low:]
+        else:
+            filtered_inputs, filtered_indexes = [], []
+            for input, index in tqdm(zip(inputs, indexes), total=n, desc='Checking'):
                 if np.ma.getmaskarray(var[(slice(None), slice(None)) + index]).all():
                     # Not computed yet
                     filtered_inputs.append(input)

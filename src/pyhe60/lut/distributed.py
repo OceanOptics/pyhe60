@@ -38,8 +38,8 @@ def _make_lut_chunk_ray(index: Tuple[int], input: dict, constants: dict, varname
 
 
 def make_lut_ray(varname: str, dimensions: dict, constants: dict = None,
-                 path_to_lut: str = None, resume_run: bool = False, node_working_dir: str = None,
-                 max_in_flight: Optional[int] = None,
+                 path_to_lut: str = None, resume_run: bool = False, lut_is_contiguous: bool = False,
+                 node_working_dir: str = None, max_in_flight: Optional[int] = None,
                  ray_address: Optional[str] = None, ray_init_kwargs: Optional[dict] = None):
     """
     Generate HydroLight6 input files, run HydroLight6, and build n-dimensional lookup table in NetCDF file.
@@ -52,6 +52,7 @@ def make_lut_ray(varname: str, dimensions: dict, constants: dict = None,
     :param path_to_lut: Path to output NetCDF LUT file
     :param working_dir: Path to HydroLight6 working directory (default to HE60_DATA)
     :param resume_run: Enable resuming an incomplete LUT run by skipping already computed chunks (default: False)
+    :param lut_is_contiguous: If True, assumes incomplete LUT is contiguous (no gaps) and sequentially filled. (default: False)
     :param node_working_dir: Path to HydroLight6 working directory on each Ray node (default to HE60_DATA for None (os dependent))
     :param max_in_flight: Max number of submitted tasks kept in flight (None for unlimited)
     :param ray_address: Ray cluster address (None for local)
@@ -65,7 +66,7 @@ def make_lut_ray(varname: str, dimensions: dict, constants: dict = None,
     # Generate input
     inputs, indexes = generate_inputs(dimensions, constants)
     if resume_run:
-        inputs, indexes = skip_computed_chunks(inputs, indexes, varname, path_to_lut)
+        inputs, indexes = skip_computed_chunks(inputs, indexes, varname, path_to_lut, lut_is_contiguous)
         print('Resuming run, skipping already computed chunks. Remaining chunks:', len(inputs))
 
     # Initialize LUT
