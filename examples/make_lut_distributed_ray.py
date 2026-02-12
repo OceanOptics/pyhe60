@@ -15,7 +15,7 @@ Leverage Ray for distributed processing across multiple CPU cores and/or machine
 parameter_space = {
     'chlorophyll': [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.6, 0.8, 1, 2, 4],  # µg/L
     'sun_zenith_angle': [0, 10, 20, 30, 40, 50, 60, 70],  # degrees
-    'temperature': [5, 10, 15, 20, 25, 30, 35],  # degrees Celsius (might need higher resolution arround 9degC
+    'temperature': [5, 10, 15, 20, 25, 30, 35],  # degrees Celsius
     'wind_speed': [0, 1, 2, 3, 5, 10, 15],  # m/s
     'salinity': [32.5, 35, 37.5, 40],  # PSU
 }

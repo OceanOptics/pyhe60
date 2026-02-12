@@ -1,13 +1,17 @@
 import os
+from typing import List
+
 import numpy as np
 import pandas as pd
 
 from ..utils import sizeof_fmt
 
 
-def estimate_lut_size(dimensions: dict):
+def estimate_lut_size(dimensions: dict, varnames: List[str] = None):
     ndims = [d if isinstance(d, int) else len(d) for d in dimensions.values()]
     size_bytes = np.prod(ndims) * 4  # float32
+    if varnames is not None:
+        size_bytes *= len(varnames)
     return sizeof_fmt(size_bytes)
 
 

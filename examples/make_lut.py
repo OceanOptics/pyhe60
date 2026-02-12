@@ -15,7 +15,7 @@ if __name__ == '__main__':  # Needed for multiprocessing
     parameter_space = {
         'chlorophyll': [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.6, 0.8, 1, 2, 4],  # µg/L
         'sun_zenith_angle': [0, 10, 20, 30, 40, 50, 60, 70],  # degrees
-        'temperature': [5, 10, 15, 20, 25, 30, 35],  # degrees Celsius (might need higher resolution arround 9degC
+        'temperature': [5, 10, 15, 20, 25, 30, 35],  # degrees Celsius
         'wind_speed': [0, 1, 2, 3, 5, 10, 15],  # m/s
         'salinity': [32.5, 35, 37.5, 40],  # PSU
     }
@@ -23,13 +23,13 @@ if __name__ == '__main__':  # Needed for multiprocessing
         'wavelength_start': 310, 'wavelength_stop': 790, 'wavelength_step': 20,
         'output_depths': np.arange(0, 0.2, 0.02).tolist() + [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
     }
-    spectral_variable = 'KLu'
+    spectral_variables = ['Lu', 'KLu']
 
     # %% Estimate LUT Size
-    s = estimate_lut_size(dimensions={
+    s = estimate_lut_size({
         'wl': np.arange(constants['wavelength_start'], constants['wavelength_stop'], constants['wavelength_step']),
         'z': constants['output_depths'], **parameter_space,
-    })
+    }, spectral_variables)
     print(f"Estimated LUT size: {s}")
 
     # %% Set working directory
@@ -44,6 +44,6 @@ if __name__ == '__main__':  # Needed for multiprocessing
     # working_dir = HE60_DATA
 
     # %% Build LUT
-    path_to_lut = os.path.join(working_dir, f'he60.{spectral_variable.lower()}.lut.r0.nc')
-    make_lut(spectral_variable, parameter_space, constants, path_to_lut, working_dir, resume_run=False)
+    path_to_lut = os.path.join(working_dir, f'he60.{spectral_variables.lower()}.lut.r0.nc')
+    make_lut(spectral_variables, parameter_space, constants, path_to_lut, working_dir, resume_run=False)
     print('LUT built at:', path_to_lut)

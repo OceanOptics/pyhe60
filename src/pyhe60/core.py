@@ -29,13 +29,13 @@ def run_he60(input_filename, force=False, verbose=True):
         subprocess.run([HE60_EXE], stdin=f, cwd=HE60_WD, **kwargs)
 
 
-def run_he60_oneshot(cfg: dict, varname: str, working_dir: str=HE60_DATA, prefix: str= 'pyhe60', flag_cleanup: bool=False):
+def run_he60_oneshot(cfg: dict, varnames: str, working_dir: str=HE60_DATA, prefix: str= 'pyhe60', flag_cleanup: bool=False):
     """
     Run HydroLight 6.0 with the given config and write output to LUT.
 
     :param working_dir:
     :param cfg: config dict
-    :param varname: variable name to extract from output
+    :param varnames: variables names to extract from output
     :param prefix: hash prefix for input and output files
     :param flag_cleanup: if True, delete input and output files after reading output (default: True)
     :return: pd.DataFrame with output variable, indexed by wavelength and depth
@@ -49,6 +49,7 @@ def run_he60_oneshot(cfg: dict, varname: str, working_dir: str=HE60_DATA, prefix
     input.output_dir = os.path.join(working_dir, 'output')
     input_filename = input.write(os.path.join(working_dir, 'run', 'batch'), prefix=prefix)
 
+    dfs = []
     try:
         # Run HydroLight 6.0
         with open(input_filename, 'r') as f:
@@ -59,7 +60,13 @@ def run_he60_oneshot(cfg: dict, varname: str, working_dir: str=HE60_DATA, prefix
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             xlsx = pd.ExcelFile(output_filename)
-            df = pd.read_excel(xlsx, varname, header=3, index_col=0)
+            for sheet_name in varnames:
+                dfs.append(pd.read_excel(xlsx, sheet_name, header=3, index_col=0))
+    except FileNotFoundError:
+        output_filename = os.path.join(working_dir, 'output', 'HydroLight', 'excel',
+                                       f'M{os.path.basename(input_filename).lstrip("I").rstrip(".txt")}.xlsx')
+        warnings.warn(f'No output file found (disabled cleanup): {output_filename}')
+        warnings.warn(f'No output file found: {output_filename}')
     finally:
         # Clean up input and output files (even if interrupted or error occurs)
         if flag_cleanup:
@@ -77,4 +84,4 @@ def run_he60_oneshot(cfg: dict, varname: str, working_dir: str=HE60_DATA, prefix
                 except FileNotFoundError:
                     pass
 
-    return df
+    return dfs
