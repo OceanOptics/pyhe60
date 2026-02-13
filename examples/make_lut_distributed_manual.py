@@ -25,7 +25,7 @@ if __name__ == '__main__':  # Needed for multiprocessing
         'wavelength_start': 310, 'wavelength_stop': 790, 'wavelength_step': 1,
         'output_depths': np.arange(0, 0.2, 0.02).tolist() + [0.2, 0.5, 1.0]  #, 2.0, 5.0, 10.0]
     }
-    spectral_variables = ['Lu', 'Ed', 'KLu', 'Kd']
+    spectral_variables = ['KLu', 'Kd', 'Lu', 'Ed']
 
     # %% Select one job and run it with make_lut_multiprocessing
     n_jobs = 48

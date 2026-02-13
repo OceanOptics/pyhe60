@@ -1,4 +1,4 @@
-from .io import read_lut, write_lut, merge_partial_luts
+from .io import read_lut, write_lut, merge_partial_luts, rename_lut_dimension
 from .format import make_lut_from_runs, estimate_lut_size
 from .parallel import make_lut_multiprocessing, generate_inputs
 
@@ -13,7 +13,7 @@ except ImportError:
 # Default to multiprocessing for backward compatibility
 make_lut = make_lut_multiprocessing
 
-__all__ = ['read_lut', 'write_lut', 'merge_partial_luts',
+__all__ = ['read_lut', 'write_lut', 'merge_partial_luts', 'rename_lut_dimension',
            'estimate_lut_size', 'make_lut_from_runs',
            'generate_inputs', 'make_lut_multiprocessing', 'make_lut']
 

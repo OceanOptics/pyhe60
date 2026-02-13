@@ -21,9 +21,9 @@ parameter_space = {
 }
 constants = {
     'wavelength_start': 310, 'wavelength_stop': 790, 'wavelength_step': 1,
-    'output_depths': np.arange(0, 0.2, 0.02).tolist() + [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
+    'output_depths': np.arange(0, 0.2, 0.02).tolist() + [0.2, 0.5, 1.0]  #, 2.0, 5.0, 10.0]
 }
-spectral_variable = 'KLu'
+spectral_variables = ['KLu', 'Kd', 'Lu', 'Ed']
 
 # %% Ray parameters
 head_node_ip = os.environ.get("HEAD_NODE_IP", '127.0.0.1')
@@ -48,11 +48,11 @@ ray_init_kwargs = dict(
 )
 
 # %% Build LUT
-path_to_lut = os.path.join(HE60_DATA, f'he60.{spectral_variable.lower()}.lut.r1.nc')
+path_to_lut = os.path.join(HE60_DATA, f'he60.lut.r1.nc')
 # if os.path.exists(path_to_lut):
 #     os.remove(path_to_lut)
-make_lut_ray(spectral_variable, parameter_space, constants, path_to_lut,
-             resume_run=True, lut_is_contiguous=True,
+make_lut_ray(spectral_variables, parameter_space, constants, path_to_lut,
+             resume_run=True, lut_is_contiguous=False,
              max_in_flight=200,
              ray_address=head_node_address, ray_init_kwargs=ray_init_kwargs)
 print('LUT built at:', path_to_lut)

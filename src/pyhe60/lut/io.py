@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from hashlib import shake_128
 import os
 import shutil
+import tempfile
 from types import ModuleType
 from typing import Tuple, List, Union
 
@@ -263,10 +264,13 @@ def merge_partial_luts(path_to_luts: list, path_to_merged_lut: str):
                 if dim_name in dimensions0 and not np.array_equal(dimensions[dim_name], dimensions0[dim_name]):
                     print(f'Info: LUT dimension {dim_name} mismatch in file {os.path.basename(f)}')
 
-            # Check variable(s) dimensions
-            for variable in varnames:
-                if variable in variables0 and d.variables[variable].dimensions != variables0[variable]:
-                    print(f'Warning: LUT variable {variable} dimension keys mismatch in file {os.path.basename(f)}')
+            # Check core variable(s) dimensions
+            for varname in varnames:
+                if varname not in d.variables:
+                    print(f'Info: LUT variable {varname} not found in file {os.path.basename(f)}, skipping')
+                    continue
+                if d.variables[varname].dimensions != variables0[varname]:
+                    print(f'Warning: LUT variable {varname} dimension keys mismatch in file {os.path.basename(f)}')
                     flag = True
     if flag:
         raise ValueError('LUT files have mismatches, cannot merge. Please check warnings above.')
@@ -286,6 +290,8 @@ def merge_partial_luts(path_to_luts: list, path_to_merged_lut: str):
             for f in path_to_luts[1:]:
                 with netCDF4.Dataset(f, 'r') as d_src:
                     d_src.set_auto_mask(False)
+                    if varname not in d_src.variables:
+                        continue
                     data_src = d_src.variables[varname][:]
 
                     # Build mapping from source dimensions to destination dimensions
@@ -364,3 +370,92 @@ def merge_partial_luts(path_to_luts: list, path_to_merged_lut: str):
 
             # Write data back to destination LUT
             var_dst[:] = data_dst
+
+
+def rename_lut_dimension(path_to_lut: str, old_dim_name: str = 'depth', new_dim_name: str = 'depthK'):
+    """
+    Rename an LUT table by renaming the depth dimension.
+    Creates a temporary file and replaces the original.
+
+    :param path_to_lut: Path to LUT NetCDF file to modify
+    :param old_dim_name: Old dimension name to replace (default: 'depth')
+    :param new_dim_name: New dimension name (default: 'depthK')
+    """
+    if old_dim_name == new_dim_name:
+        print(f'Old and new dimension names are the same ({old_dim_name}). No changes made.')
+        return
+
+    if isinstance(netCDF4, type(None)):
+        raise ModuleNotFoundError('netCDF4 is required for this operation.')
+
+    if not os.path.exists(path_to_lut):
+        raise ValueError(f'LUT file not found: {path_to_lut}')
+
+    # Create temporary file in same directory to ensure same filesystem
+    temp_dir = os.path.dirname(path_to_lut)
+    with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False, suffix='.nc') as tmp:
+        temp_path = tmp.name
+
+    try:
+        # Read source file
+        with netCDF4.Dataset(path_to_lut, 'r') as src:
+            src.set_auto_mask(False)
+
+            # Check if old dimension exists
+            if old_dim_name not in src.dimensions:
+                print(f'{os.path.basename(path_to_lut)}: Dimension {old_dim_name} not found in LUT. No changes made.')
+                os.remove(temp_path)
+                return
+
+            # Create new file with renamed dimension
+            with netCDF4.Dataset(temp_path, 'w', format=src.data_model) as dst:
+                # Copy global attributes
+                for attr in src.ncattrs():
+                    dst.setncattr(attr, src.getncattr(attr))
+
+                # Create dimensions (with renamed old_dim_name)
+                for dim_name, dim in src.dimensions.items():
+                    new_name = new_dim_name if dim_name == old_dim_name else dim_name
+                    dst.createDimension(new_name, dim.size)
+
+                # Copy and rename variables
+                for varname in src.variables.keys():
+                    var_src = src.variables[varname]
+
+                    # Update dimensions tuple
+                    old_dims = var_src.dimensions
+                    new_dims = tuple(new_dim_name if d == old_dim_name else d for d in old_dims)
+
+                    # Rename the variable if it's the coordinate variable for the old dimension
+                    new_varname = new_dim_name if varname == old_dim_name else varname
+
+                    # Create new variable
+                    fill_value = var_src._FillValue if hasattr(var_src, '_FillValue') else None
+                    var_dst = dst.createVariable(new_varname, var_src.dtype, new_dims, fill_value=fill_value)
+
+                    # Copy data
+                    # Handle VLEN variables differently - they require integer indexing
+                    if var_src.dtype == str:  # Object type (VLEN)
+                        # For VLEN, copy element by element using integer indexing
+                        if var_src.ndim == 0:
+                            var_dst[()] = var_src[()]
+                        else:
+                            for idx in np.ndindex(var_src.shape):
+                                var_dst[idx] = var_src[idx]
+                    else:
+                        # For regular variables, use slice notation
+                        var_dst[:] = var_src[:]
+
+                    # Copy attributes
+                    for attr in var_src.ncattrs():
+                        if attr in ['_FillValue', 'missing_value']:
+                            continue  # Skip as attributes are handled by the createVariable parameter
+                        var_dst.setncattr(attr, var_src.getncattr(attr))
+
+        # Replace original file with temporary file
+        shutil.move(temp_path, path_to_lut)
+
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise e
