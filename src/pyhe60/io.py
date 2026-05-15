@@ -302,8 +302,11 @@ class Hyrolight6Input:
             else:
                 # Group 12: More Data files
                 pass
-        if hei.hash() != ref.split('-')[1]:
-            warnings.warn('Hash of parsed HydroLight6 input file does not match reference hash in filename.')
+        try:
+            if hei.hash() != ref.rsplit('-', 1)[1]:
+                warnings.warn('Hash of parsed HydroLight6 input file does not match reference hash in filename.')
+        except IndexError:
+            warnings.warn('Reference hash not found in filename. Cannot verify integrity of parsed HydroLight6 input file.')
         return hei
 
 
@@ -363,9 +366,20 @@ def read_m_xlsx(filename, keys=None):
         xlsx = pd.ExcelFile(filename)
         out = {}
         for sheet_name in keys:
-            df = pd.read_excel(xlsx, sheet_name, header=3, index_col=0)
-            out[sheet_name] = df.T
-            out[sheet_name].index.name = 'variable' if sheet_name == 'Rrs' else 'depth'
+            if sheet_name in ['a', 'b', 'bb', 'bb fraction']:
+                # Read each component
+                foo = pd.read_excel(xlsx, sheet_name, usecols='A', names=['a'])
+                sep_idx = foo.index[foo['a'].isna()].to_list()
+                names = ['_' + foo.loc[i+1, 'a'].split('for')[1].strip().replace(' ', '') if 'for' in foo.loc[i+1, 'a'] else '' for i in sep_idx]
+                idx = foo.index[foo['a'].isna()].to_list() + [len(foo)]
+                idx[0] -= 1  # Exception for first total a
+                for name, s, e in zip(names, idx[0:-1], idx[1:]):
+                    out[sheet_name + name] = pd.read_excel(xlsx, sheet_name, header=s + 3, nrows=e - (s + 3), index_col=0)
+            else:
+                out[sheet_name] = pd.read_excel(xlsx, sheet_name, header=3, index_col=0)
+        for key in out:
+            out[key] = out[key].T
+            out[key].index.name = 'variable' if sheet_name == 'Rrs' else 'depth'
     return out
 
 
@@ -396,7 +410,7 @@ def read_multi_m_xslx(varname='KLu', z_ref=None, prefix='pyhe60',
         for k in defaults.keys():
             df[k].append(getattr(cfg, k))
         # Read M output file
-        m = read_m_xlsx(output_filename)
+        m = read_m_xlsx(output_filename, varname.split('_',1)[0])
         df['wl'].append(m[varname].columns.to_numpy(dtype=float))
         z = m[varname].rename(index={'in air': -1111}).index.to_numpy(dtype=float)
         if z_ref is None:
@@ -416,3 +430,121 @@ def read_multi_m_xslx(varname='KLu', z_ref=None, prefix='pyhe60',
         return pd.DataFrame(df)
     else:
         return pd.DataFrame(df), z_value
+
+
+def read_ac(filename):
+    """
+    Read user-supplied AC-9 or AC-S data file to run HydroLight6 with measured IOPs
+    Only support 1D depth (constant depth files).
+
+    :param filename: path to HydroLight6 standard format ac data file
+    :return: depth, wavelength, absorption (a), and attenuation (c)
+    """
+    with open(filename, 'r') as f:
+        header = list(iter(f.readline, '\\end_header\n'))
+        line = f.readline().split()
+        n = int(line[0])
+        wl = np.array(line[1:], dtype=float)
+        if n != len(wl):
+            raise ValueError(f'Length of wl does not match n={n}')
+        z, a, c = [], [], []
+        while True:
+            line = f.readline()
+            if line == '\\end_data\n':
+                break
+            line = line.split()
+            z.append(float(line[0]))
+            a.append(np.array(line[1:n+1], dtype=float))
+            c.append(np.array(line[n+1:2*n+1], dtype=float))
+        return z[0] if len(z) == 1 else np.array(z), wl, np.array(a).squeeze(), np.array(c).squeeze()
+
+
+def read_bb(filename):
+    """
+    Read user-supplied BB data file to run HydroLight6 with measured IOPs
+    Only support 1D depth (constant depth files).
+
+    :param filename: path to HydroLight6 standard format bb data file
+    :return: depth, wavelength, backscattering (bb)
+    """
+    with open(filename, 'r') as f:
+        header = list(iter(f.readline, '\\end_header\n'))
+        line = f.readline().split()
+        n = int(line[0])
+        wl = np.array(line[1:], dtype=float)
+        if n != len(wl):
+            raise ValueError(f'Length of wl does not match n={n}')
+        z, bb = [], []
+        while True:
+            line = f.readline()
+            if line == '\\end_data\n':
+                break
+            line = line.split()
+            z.append(float(line[0]))
+            bb.append(np.array(line[1:n+1], dtype=float))
+        return z[0] if len(z) == 1 else np.array(z), wl, np.array(bb).squeeze()
+
+
+def write_ac(wl, a, c, filename):
+    """
+    Write absorption and attenuation data into HydroLight6 standard format, for run with measured IOPs method.
+    Can be used to write particulate + dissolved (no pure water) or dissolved only (pure water is added by HydroLight6).
+    HydroLight6 only cares about the tolal absorption and attenuation, however, dissolved absorption is used for CDOM fluorescence.
+
+    :param wl: wavelength in nm
+    :param a: absorption coefficient of particulate and dissolved matter (pure water is added by HydroLight6) in 1/nm
+    :param c: attenuation coefficient of particulate and dissolved matter (pure water is added by HydroLight6) in 1/nm
+    :param filename: output filename for HydroLight6 standard format ac data file
+    :return:
+    """
+    if not (np.all(np.isfinite(wl)) and np.all(np.isfinite(a)) and np.all(np.isfinite(c))):
+        raise ValueError('Infinite or NaN values not allowed')
+    if len(wl) != len(a) or len(wl) != len(c):
+        raise ValueError('Length of wl and a and/or c do not match')
+    with open(filename, 'w') as f:
+        f.write('\\begin_header\n')
+        f.write('!User-supplied absorption and attenuation data in standard format for HydroLight 6.0\n')
+        f.write('!Wavelength in nm, absorption and attenuation in 1/nm\n')
+        f.write('!Water not included\n')
+        f.write('!depth, a(wl1), ..., a(wln), c(wl1), ..., c(wln)\n')
+        f.write('\\end_header\n')
+        f.write(f'   {len(wl)}  ' + '  '.join([f'{w:.1f}' for w in wl]) + '\n')
+        for z in [1.5]:
+            f.write(
+                f'{z:8.3f}  ' +
+                np.array2string(a, formatter={'float_kind': lambda x: f"{x:10.3e}"}, separator='  ', max_line_width=10000)[1:-1] +
+                np.array2string(c, formatter={'float_kind': lambda x: f"{x:10.3e}"}, separator='  ', max_line_width=10000)[1:-1] +
+                '\n'
+            )
+        f.write('\\end_data\n')
+
+
+def write_bb(wl, bb, filename):
+    """
+    Write backscattering data into HydroLight6 standard format, for run with measured IOPs method.
+
+    :param wl: wavelength in nm
+    :param bb: backscattering coefficient of particulate and dissolved matter in 1/nm,
+        pure water can be included or not, but must be consistent with the method select for HydroLight6 run.
+    :param filename: output filename for HydroLight6 standard format bb data file
+    :return:
+    """
+    if not (np.all(np.isfinite(wl)) and np.all(np.isfinite(bb))):
+        raise ValueError('Infinite or NaN values not allowed')
+    if len(wl) != len(bb):
+        raise ValueError('Length of wl and bb do not match')
+    with open(filename, 'w') as f:
+        f.write('\\begin_header\n')
+        f.write('!User-supplied backscattering data in standard format for HydroLight 6.0\n')
+        f.write('!Wavelength in nm, backscattering in 1/nm\n')
+        f.write('!Water not included\n')
+        f.write('!depth, bb(wl1), ..., bb(wln)\n')
+        f.write('\\end_header\n')
+        f.write(f'   {len(wl)}  ' + '  '.join([f'{w:.1f}' for w in wl]) + '\n')
+        for z in [1.5]:
+            f.write(
+                f'{z:8.3f}  ' +
+                np.array2string(bb, formatter={'float_kind': lambda x: f"{x:10.3e}"}, separator='  ', max_line_width=10000)[1:-1] +
+                '\n'
+            )
+        f.write('\\end_data\n')

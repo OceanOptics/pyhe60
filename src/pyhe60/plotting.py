@@ -37,21 +37,75 @@ sv_long_name = {
     'Lu': 'Upward Radiance',
     'Rrs': 'Remote Sensing Reflectance',
     'Kd': 'Downwelling Attenuation Coefficient',
-    'KLu': 'Upward Attenuation Coefficient'
+    'KLu': 'Upward Attenuation Coefficient',
+    'a': 'Absorption Coefficient',
+    'a_component1': 'Absorption Component 1',
+    'a_component2': 'Absorption Component 2',
+    'a_component3': 'Absorption Component 3',
+    'a_component4': 'Absorption Component 4',
+    'a_component5': 'Absorption Component 5',
+    'b': 'Scattering Coefficient',
+    'b_component1': 'Scattering Component 1',
+    'b_component2': 'Scattering Component 2',
+    'b_component3': 'Scattering Component 3',
+    'b_component4': 'Scattering Component 4',
+    'b_component5': 'Scattering Component 5',
+    'bb': 'Backscatter Coefficient',
+    'bb_component1': 'Backscatter Component 1',
+    'bb_component2': 'Backscatter Component 2',
+    'bb_component3': 'Backscatter Component 3',
+    'bb_component4': 'Backscatter Component 4',
+    'bb_component5': 'Backscatter Component 5',
 }
 sv_short_name = {
     'Ed': 'E<sub>d</sub>',
     'Lu': 'L<sub>u</sub>',
     'Rrs': 'R<sub>rs</sub>',
     'Kd': 'K<sub>d</sub>',
-    'KLu': 'K<sub>Lu</sub>'
+    'KLu': 'K<sub>Lu</sub>',
+    'a': 'a',
+    'a_component1': 'a_sw',
+    'a_component2': 'a_2',
+    'a_component3': 'a_3',
+    'a_component4': 'a_4',
+    'a_component5': 'a_5',
+    'b': 'b',
+    'b_component1': 'b_sw',
+    'b_component2': 'b_2',
+    'b_component3': 'b_3',
+    'b_component4': 'b_4',
+    'b_component5': 'b_5',
+    'bb': 'bb',
+    'bb_component1': 'bb_sw',
+    'bb_component2': 'bb_2',
+    'bb_component3': 'bb_3',
+    'bb_component4': 'bb_4',
+    'bb_component5': 'bb_5',
 }
 sv_units = {
     'Ed': f'W m<sup>-2</sup> nm<sup>-1</sup>',
     'Lu': f'W m<sup>-2</sup> sr<sup>-1</sup> nm<sup>-1</sup>',
     'Rrs': f'sr<sup>-1</sup>',
     'Kd': f'm<sup>-1</sup>',
-    'KLu': 'm<sup>-1</sup>'
+    'KLu': 'm<sup>-1</sup>',
+    'a': f'm<sup>-1</sup>',
+    'a_component1': f'm<sup>-1</sup>',
+    'a_component2': f'm<sup>-1</sup>',
+    'a_component3': f'm<sup>-1</sup>',
+    'a_component4': f'm<sup>-1</sup>',
+    'a_component5': f'm<sup>-1</sup>',
+    'b': f'm<sup>-1</sup>',
+    'b_component1': f'm<sup>-1</sup>',
+    'b_component2': f'm<sup>-1</sup>',
+    'b_component3': f'm<sup>-1</sup>',
+    'b_component4': f'm<sup>-1</sup>',
+    'b_component5': f'm<sup>-1</sup>',
+    'bb': f'm<sup>-1</sup>',
+    'bb_component1': f'm<sup>-1</sup>',
+    'bb_component2': f'm<sup>-1</sup>',
+    'bb_component3': f'm<sup>-1</sup>',
+    'bb_component4': f'm<sup>-1</sup>',
+    'bb_component5': f'm<sup>-1</sup>',
 }
 
 
@@ -71,22 +125,19 @@ def plot_spectrum(df, control_parameter, spectral_variable, colorscale='viridis'
     :return: plotly figure
     """
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, )
-    r0, r0_param_value = 0, None
+    r0 = df[spectral_variable].mean()
     for i, r in df.iterrows():
-        fig.add_scatter(x=r['wl'], y=r[spectral_variable], name=f'{cp_short_name[control_parameter]}: {r[control_parameter]:g}',
+        name = f'{cp_short_name[control_parameter]}: ' + (f'{r[control_parameter]:g}' if isinstance(r[control_parameter], (int, float)) else str(r[control_parameter]))
+        fig.add_scatter(x=r['wl'], y=r[spectral_variable], name=name,
                         mode='lines', line_color=sample_colorscale(colorscale, i / (len(df) - 1))[0],
                         legendgroup=i, row=1, col=1)
-        if i == 0:
-            r0 = r[spectral_variable]
-            r0_param_value = r[control_parameter]
-            continue
-        fig.add_scatter(x=r['wl'], y=(r[spectral_variable] - r0) / (0.5 * (r0 + r[spectral_variable])),
+        fig.add_scatter(x=r['wl'], y=(r[spectral_variable] - r0) / (0.5 * (r0 + r[spectral_variable])), name=name,
                         mode='lines', line_color=sample_colorscale(colorscale, i / (len(df) - 1))[0],
                         showlegend=False, legendgroup=i, row=2, col=1)
     fig.update_xaxes(showticklabels=True, showgrid=True, zeroline=True, row=1, col=1)
     fig.update_xaxes(title='Wavelength (nm)', showgrid=True, zeroline=True, row=2, col=1)
     fig.update_yaxes(title=f'{sv_short_name[spectral_variable]} ({sv_units[spectral_variable]})', showgrid=True, zeroline=True, row=1, col=1)
-    fig.update_yaxes(title=f'Relative Difference wrt {cp_short_name[control_parameter]}={r0_param_value}', showgrid=True, zeroline=True, row=2,
+    fig.update_yaxes(title=f'Relative Difference wrt mean', showgrid=True, zeroline=True, row=2,
                      col=1)
     fig.update_layout(title=f"{cp_long_name[control_parameter]}", legend_tracegroupgap=0)
     if len(df) > 24:
@@ -120,7 +171,7 @@ def plot_property(df, control_parameter, spectral_variable, target_wavelengths=N
     return fig
 
 
-def select_subset(df, control_parameter, verbose=False):
+def select_subset(df, control_parameter, constants=None, verbose=False):
     """
     Return a subset of the dataframe varying only with the control_parameter, other variables set to default.
 
@@ -128,8 +179,17 @@ def select_subset(df, control_parameter, verbose=False):
     :param control_parameter: only variable parameter, others will be kept at default values
     :return: return subset of dataframe
     """
+    if constants is None:
+        constants = defaults
+    else:
+        c = defaults.copy()
+        for k, v in constants.items():
+            if k in c:
+                c[k] = v
+        constants = c
+
     sel = np.ones(len(df), dtype=bool)
-    for k, v in defaults.items():
+    for k, v in constants.items():
         if k == control_parameter:
             continue
         sel &= (df[k] == v)
