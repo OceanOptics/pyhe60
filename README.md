@@ -100,4 +100,4 @@ This example shows how to generate a look-up table by running multiple HydroLigh
 This example demonstrates how to generate a look-up table using Ray for distributed computing across multiple nodes. Ensure your Ray cluster is set up and running before executing the commands below. Make sure to adjust the `HEAD_NODE_IP` variable to point to your Ray cluster's head node.
 
     export HEAD_NODE_IP=<HEAD_NODE_IP>
-    python examples/make_lut_distributed.py
+    python examples/make_lut_distributed_ray.py

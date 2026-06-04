@@ -214,7 +214,7 @@ class Hyrolight6Input:
             lines = f.readlines()
         hei = Hyrolight6Input()
         iop_spec_start, iop_spec_end = -9999, -9999
-        n_wavelengths, ref = -1, '-'
+        n_wavelengths, ref, conc_comp_file = -1, '-', []
         for idx, line in enumerate(lines):
             if idx == 0:
                 # Group 1
@@ -288,19 +288,56 @@ class Hyrolight6Input:
                 parts = [v.strip() for v in line.split(',')]
                 nznom = int(parts[1])
                 hei.output_depths = [float(d) for d in parts[2:2 + nznom]]
-            elif idx == iop_spec_end + 19:
-                # Group 12: UV particle absorption
-                uv_ap_file = line.strip()
-                if uv_ap_file == 'AE_lowUVabs.txt':
+            elif idx == iop_spec_end + 9:
+                # Group 12: Data files -> Pure Water
+                pure_water_file = line.strip()
+            elif idx == iop_spec_end + 10:
+                # Group 12: Data files -> Number of AC files to read
+                n_ac_files = int(line.strip())
+            elif idx == iop_spec_end + 11:
+                # Group 12: Data files -> AC file (particulate + dissolved)
+                ac_file = line.strip()
+            elif idx == iop_spec_end + 12:
+                # Group 12: Data files -> AC filtered file (dissolved)
+                ac_filtered_file = line.strip()
+            elif idx == iop_spec_end + 13:
+                # Group 12: Data files -> BB file (with or without water)
+                bb_file = line.strip()
+            elif idx == iop_spec_end + 14:
+                # Group 12: Data files -> Chlorophyll file (used for fluorescence)
+                chl_file = line.strip()
+            elif idx == iop_spec_end + 15:
+                # Group 12: Data files -> CDOM file (used for fluorescence)
+                cdom_file = line.strip()
+            elif idx == iop_spec_end + 16:
+                # Group 12: Data files -> Bottom reflectance file
+                r_bottom_file = line.strip()
+            elif iop_spec_end + 17 <= idx < iop_spec_end + 17 + ncomp:
+                # Group 12: Concentration profile for component i
+                value = line.strip()
+                conc_comp_file.append(value)
+                # UV particle absorption
+                if value == 'AE_lowUVabs.txt':
                     hei.uv_particle_absorption = 'low'
-                elif uv_ap_file == 'AE_midUVabs.txt':
+                elif value == 'AE_midUVabs.txt':
                     hei.uv_particle_absorption = 'medium'
-                elif uv_ap_file == 'AE_highUVabs.txt':
+                elif value == 'AE_highUVabs.txt':
                     hei.uv_particle_absorption = 'high'
+                elif value == 'dummyComp.txt':
+                    pass  # Component not related
                 else:
                     raise ValueError(f'UV particle absorption file not supported: {uv_ap_file}')
+            elif idx == iop_spec_end + 17 + ncomp + 1:
+                # Group 12: Data files -> Total sea-surface downward irradiance (use in place of RADTRAN-X)
+                irradiance_file = line.strip()
+            elif idx == iop_spec_end + 17 + ncomp + 2:
+                # Group 12: Data files -> Bioluminescent source strength (W m-3 nm)
+                biolum_file = line.strip()
+            elif idx == iop_spec_end + 17 + ncomp + 3:
+                # Group 12: Data files -> Sky radiance (to in place of RADTRAN-X)
+                l_sky_file = line.strip()
             else:
-                # Group 12: More Data files
+                # Group 13: Name of user-defined IOP components
                 pass
         try:
             if hei.hash() != ref.rsplit('-', 1)[1]:
