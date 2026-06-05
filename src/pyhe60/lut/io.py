@@ -459,3 +459,98 @@ def rename_lut_dimension(path_to_lut: str, old_dim_name: str = 'depth', new_dim_
         if os.path.exists(temp_path):
             os.remove(temp_path)
         raise e
+
+
+def extract_varname_from_lut(path_to_lut: str, output_path: str, varname: str):
+    """
+    Extract a single variable from an existing LUT NetCDF file and write a new LUT file
+    containing only that variable while preserving relevant dimensions, coordinate variables
+    and scalar constants. The resulting file will have its `varnames` global attribute set
+    to the single extracted varname.
+
+    :param path_to_lut: source LUT NetCDF file
+    :param output_path: destination LUT NetCDF file to create
+    :param varname: variable name to extract
+    """
+    if not isinstance(netCDF4, ModuleType):
+        raise ModuleNotFoundError('extract_varname_from_lut requires the module netCDF4.')
+
+    if not os.path.exists(path_to_lut):
+        raise ValueError(f'LUT file not found: {path_to_lut}')
+
+    # Read source and collect metadata
+    with netCDF4.Dataset(path_to_lut, 'r') as src:
+        src.set_auto_mask(False)
+        if varname not in src.variables:
+            raise ValueError(f'Variable {varname} not found in LUT: {path_to_lut}')
+
+        # Dimensions and their coordinate variables to copy
+        dims_to_copy = list(src.dimensions.keys())
+        coord_vars = [d for d in dims_to_copy if d in src.variables]
+
+        # Scalar constants: variables with 0 dimensions and not a coordinate variable
+        scalar_vars = [k for k, v in src.variables.items() if v.ndim == 0 and k not in coord_vars]
+
+        # Variables to copy: the requested varname, coordinate vars and scalar constants
+        variables_to_copy = {varname} | set(coord_vars) | set(scalar_vars)
+
+
+    depthk_vars = {'Kd', 'Ku', 'KLu'}
+    depth0_vars = {'Lu', 'Eod', 'Eou', 'Eo', 'Ed', 'Eu', 'Lu over Ed', 'R'}
+
+    # Write destination file
+    with delay_sigint():
+        with netCDF4.Dataset(path_to_lut, 'r') as src:
+            src.set_auto_mask(False)
+            if varname not in src.variables:
+                raise ValueError(f'Variable {varname} not found in LUT: {path_to_lut}')
+
+            with netCDF4.Dataset(output_path, 'w', format='NETCDF4') as dst:
+                # Copy global attributes, but set varnames to the single varname
+                for k in src.ncattrs():
+                    if k in ['varnames', 'varname']:
+                        dst.setncattr(k, varname)
+                    else:
+                        dst.setncattr(k, src.getncattr(k))
+
+                # Copy constants (Scalar)
+                for k, var_src in src.variables.items():
+                    if var_src.ndim != 0:
+                        continue
+                    fill_value = getattr(var_src, '_FillValue', None)
+                    var_dst = dst.createVariable(k, var_src.dtype, fill_value=fill_value)
+                    var_dst[...] = var_src[:]
+                    for attr in var_src.ncattrs():
+                        if attr in ['_FillValue',
+                                    'missing_value']:  # skip _FillValue and missing_value which were handled
+                            continue
+                        var_dst.setncattr(attr, var_src.getncattr(attr))
+
+                # Copy dimensions (rename depth dimension if needed)
+                for dim_name, dim in src.dimensions.items():
+                    var_src = src.variables[dim_name]
+                    if (dim_name == 'depthK' and varname in depth0_vars) or (dim_name == 'depth0' and varname in depthk_vars):
+                        continue
+                    elif (dim_name == 'depthK' and varname in depthk_vars) or (dim_name == 'depth0' and varname in depth0_vars):
+                        dim_name = 'depth'
+                    size = None if dim.isunlimited() else dim.size
+                    dst.createDimension(dim_name, size)
+                    fill_value = getattr(var_src, '_FillValue', None)
+                    var_dst = dst.createVariable(dim_name, var_src.dtype, (dim_name,), fill_value=fill_value)
+                    var_dst[:] = var_src[:]
+                    for attr in var_src.ncattrs():
+                        if attr in ['_FillValue',
+                                    'missing_value']:  # skip _FillValue and missing_value which were handled
+                            continue
+                        var_dst.setncattr(attr, var_src.getncattr(attr))
+
+                # Copy variable
+                var_src = src.variables[varname]
+                fill_value = getattr(var_src, '_FillValue', None)
+                dim_dst = tuple('depth' if d.startswith('depth') else d for d in var_src.dimensions)
+                var_dst = dst.createVariable(varname, var_src.dtype, dim_dst, fill_value=fill_value)
+                var_dst[:] = var_src[:]
+                for attr in var_src.ncattrs():
+                    if attr in ['_FillValue', 'missing_value']:  # skip _FillValue and missing_value which were handled
+                        continue
+                    var_dst.setncattr(attr, var_src.getncattr(attr))
